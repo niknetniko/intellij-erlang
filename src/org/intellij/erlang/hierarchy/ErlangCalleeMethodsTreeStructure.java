@@ -15,8 +15,8 @@
  */
 package org.intellij.erlang.hierarchy;
 
-import com.intellij.ide.hierarchy.HierarchyNodeDescriptor;
-import com.intellij.ide.hierarchy.HierarchyTreeStructure;
+import com.intellij.ide.hierarchy.newAPI.HierarchyNodeDescriptor;
+import com.intellij.ide.hierarchy.newAPI.HierarchyTreeStructure;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.SyntaxTraverser;
 import com.intellij.util.ObjectUtils;

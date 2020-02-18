@@ -17,6 +17,7 @@ package org.intellij.erlang.jps;
 
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.structuralsearch.impl.matcher.compiler.GlobalCompilingVisitor;
 import com.intellij.testFramework.UsefulTestCase;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.jps.api.CanceledStatus;
@@ -28,15 +29,10 @@ import org.jetbrains.jps.builders.logging.BuildLoggingManager;
 import org.jetbrains.jps.builders.storage.BuildDataPaths;
 import org.jetbrains.jps.cmdline.ClasspathBootstrap;
 import org.jetbrains.jps.cmdline.ProjectDescriptor;
-import org.jetbrains.jps.incremental.BuilderRegistry;
-import org.jetbrains.jps.incremental.IncProjectBuilder;
-import org.jetbrains.jps.incremental.RebuildRequestedException;
+import org.jetbrains.jps.incremental.*;
 import org.jetbrains.jps.incremental.fs.BuildFSState;
 import org.jetbrains.jps.incremental.relativizer.PathRelativizerService;
-import org.jetbrains.jps.incremental.storage.BuildDataManager;
-import org.jetbrains.jps.incremental.storage.BuildTargetSourcesState;
-import org.jetbrains.jps.incremental.storage.BuildTargetsState;
-import org.jetbrains.jps.incremental.storage.ProjectTimestamps;
+import org.jetbrains.jps.incremental.storage.*;
 import org.jetbrains.jps.indices.ModuleExcludeIndex;
 import org.jetbrains.jps.indices.impl.IgnoredFileIndexImpl;
 import org.jetbrains.jps.indices.impl.ModuleExcludeIndexImpl;
@@ -115,16 +111,17 @@ public abstract class JpsBuildTestCase extends UsefulTestCase {
       BuildTargetIndexImpl targetIndex = new BuildTargetIndexImpl(targetRegistry, buildRootIndex);
       BuildTargetsState targetsState = new BuildTargetsState(dataPaths, myModel, buildRootIndex);
       PathRelativizerService relativizer = new PathRelativizerService();
+      @SuppressWarnings("UnstableApiUsage")
       ProjectTimestamps timestamps = new ProjectTimestamps(myDataStorageRoot, targetsState, relativizer);
-      BuildDataManager dataManager = new BuildDataManager(dataPaths, targetsState, relativizer, true);
-      BuildTargetSourcesState sourcesState = new BuildTargetSourcesState(targetIndex, buildRootIndex, timestamps, dataPaths, relativizer);
+      BuildDataManager dataManager = new BuildDataManager(dataPaths, targetsState, relativizer);
+      //noinspection UnstableApiUsage
       return new ProjectDescriptor(myModel,
                                    new BuildFSState(true),
                                    timestamps,
                                    dataManager,
                                    buildLoggingManager,
                                    index, targetsState,
-                                   targetIndex, buildRootIndex, ignoredFileIndex, sourcesState);
+                                   targetIndex, buildRootIndex, ignoredFileIndex);
     }
     catch (IOException e) {
       throw new RuntimeException(e);

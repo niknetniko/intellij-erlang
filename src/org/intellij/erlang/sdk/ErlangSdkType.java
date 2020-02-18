@@ -22,6 +22,8 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleUtilCore;
+import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.projectRoots.*;
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl;
@@ -29,8 +31,10 @@ import com.intellij.openapi.roots.JavadocOrderRootType;
 import com.intellij.openapi.roots.ModuleRootManager;
 import com.intellij.openapi.roots.OrderRootType;
 import com.intellij.openapi.roots.ProjectRootManager;
+import com.intellij.openapi.util.Computable;
 import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.SystemInfo;
+import com.intellij.openapi.util.ThrowableComputable;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.LocalFileSystem;
@@ -60,11 +64,11 @@ public class ErlangSdkType extends SdkType {
   private static final String ERTS_VERSION_PREFIX_LINE = "ErlangSdkType_ERTS_VERSION:";
   private static final String PRINT_VERSION_INFO_EXPRESSION =
     "io:format(\"~n~s~n~s~n~s~n~s~n\",[" +
-      "\"" + OTP_RELEASE_PREFIX_LINE + "\"," +
-      "erlang:system_info(otp_release)," +
-      "\"" + ERTS_VERSION_PREFIX_LINE + "\"," +
-      "erlang:system_info(version)" +
-      "]),erlang:halt().";
+    "\"" + OTP_RELEASE_PREFIX_LINE + "\"," +
+    "erlang:system_info(otp_release)," +
+    "\"" + ERTS_VERSION_PREFIX_LINE + "\"," +
+    "erlang:system_info(version)" +
+    "]),erlang:halt().";
   private static final Logger LOG = Logger.getInstance(ErlangSdkType.class);
 
   private final Map<String, ErlangSdkRelease> mySdkHomeToReleaseCache = ApplicationManager.getApplication().isUnitTestMode() ?
@@ -100,7 +104,7 @@ public class ErlangSdkType extends SdkType {
     else if (SystemInfo.isMac) {
       String macPorts = "/opt/local/lib/erlang";
       if (new File(macPorts).exists()) return macPorts;
-      
+
       // For home brew we trying to find something like /usr/local/Cellar/erlang/*/lib/erlang as SDK root
       for (String version : new String[]{"", "-r14", "-r15", "-r16"}) {
         File brewRoot = new File("/usr/local/Cellar/erlang" + version);
@@ -153,7 +157,8 @@ public class ErlangSdkType extends SdkType {
 
   @Nullable
   @Override
-  public AdditionalDataConfigurable createAdditionalDataConfigurable(@NotNull SdkModel sdkModel, @NotNull SdkModificator sdkModificator) {
+  public AdditionalDataConfigurable createAdditionalDataConfigurable(@NotNull SdkModel sdkModel,
+                                                                     @NotNull SdkModificator sdkModificator) {
     return null;
   }
 
@@ -217,11 +222,25 @@ public class ErlangSdkType extends SdkType {
 
   @Nullable
   private ErlangSdkRelease detectSdkVersion(@NotNull String sdkHome) {
-    ErlangSdkRelease release = mySdkHomeToReleaseCache.computeIfAbsent(getVersionCacheKey(sdkHome), ErlangSdkType::getRelease);
-    if (release == null && ApplicationManager.getApplication().isUnitTestMode()) {
+
+    ProgressManager m = ProgressManager.getInstance();
+    ThrowableComputable<ErlangSdkRelease, IllegalArgumentException> computable = () -> {
+      ErlangSdkRelease release = mySdkHomeToReleaseCache.computeIfAbsent(getVersionCacheKey(sdkHome), ErlangSdkType::getRelease);
+      if (release == null && ApplicationManager.getApplication().isUnitTestMode()) {
+        throw new AssertionError("SDK version detection failed. If you're using a mock SDK, make sure you have your SDK version pre-cached");
+      }
+      return release;
+    };
+    try {
+      return m.runProcessWithProgressSynchronously(
+        computable, "Getting Erlang Version",
+        false,
+        null
+      );
+    }
+    catch (IllegalArgumentException e) {
       throw new AssertionError("SDK version detection failed. If you're using a mock SDK, make sure you have your SDK version pre-cached");
     }
-    return release;
   }
 
   @Nullable
@@ -338,14 +357,16 @@ public class ErlangSdkType extends SdkType {
           }
         }
       }
-    } catch (ExecutionException ignore) {
+    }
+    catch (ExecutionException ignore) {
     }
 
     File stdLibDir = new File("/usr/lib/erlang");
     tryToProcessAsStandardLibraryDir(sdkModificator, stdLibDir);
   }
 
-  private static boolean tryToProcessAsStandardLibraryDir(@NotNull SdkModificator sdkModificator, @NotNull File stdLibDir) {
+  private static boolean tryToProcessAsStandardLibraryDir(@NotNull SdkModificator sdkModificator,
+                                                          @NotNull File stdLibDir) {
     if (!isStandardLibraryDir(stdLibDir)) return false;
     VirtualFile dir = LocalFileSystem.getInstance().findFileByIoFile(stdLibDir);
     if (dir != null) {
@@ -361,7 +382,7 @@ public class ErlangSdkType extends SdkType {
 
   @NotNull
   private static String getDefaultSdkName(@NotNull String sdkHome, @Nullable ErlangSdkRelease version) {
-    return  version != null ? "Erlang " + version.getOtpRelease() : "Unknown Erlang version at " + sdkHome;
+    return version != null ? "Erlang " + version.getOtpRelease() : "Unknown Erlang version at " + sdkHome;
   }
 
   @Nullable
@@ -374,7 +395,7 @@ public class ErlangSdkType extends SdkType {
     if (sdk != null && sdk.getSdkType() == getInstance()) {
       ErlangSdkRelease fromVersionString = ErlangSdkRelease.fromString(sdk.getVersionString());
       return fromVersionString != null ? fromVersionString :
-        getInstance().detectSdkVersion(StringUtil.notNullize(sdk.getHomePath()));
+             getInstance().detectSdkVersion(StringUtil.notNullize(sdk.getHomePath()));
     }
     return null;
   }

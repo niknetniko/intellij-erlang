@@ -16,7 +16,9 @@
 
 package org.intellij.erlang.hierarchy;
 
-import com.intellij.ide.hierarchy.*;
+import com.intellij.ide.hierarchy.HierarchyBrowser;
+import com.intellij.ide.hierarchy.HierarchyProvider;
+import com.intellij.ide.hierarchy.newAPI.*;
 import com.intellij.ide.hierarchy.call.CallHierarchyBrowser;
 import com.intellij.ide.util.treeView.AlphaComparator;
 import com.intellij.ide.util.treeView.NodeDescriptor;
@@ -53,7 +55,7 @@ public class ErlangCallHierarchyProvider implements HierarchyProvider {
 
   @Override
   public void browserActivated(@NotNull HierarchyBrowser hierarchyBrowser) {
-    ((CallHierarchyBrowserBase) hierarchyBrowser).changeView(CallHierarchyBrowserBase.CALLER_TYPE);
+    ((CallHierarchyBrowserBase) hierarchyBrowser).changeView(CallHierarchyBrowserBase.getCallerType());
   }
 
   private static class MyCallHierarchyBrowserBase extends CallHierarchyBrowserBase {
@@ -68,20 +70,20 @@ public class ErlangCallHierarchyProvider implements HierarchyProvider {
     }
 
     @Override
-    protected void createTrees(@NotNull Map<String, JTree> trees) {
+    protected void createTrees(@NotNull Map<HierarchyScopeType, JTree> trees) {
       ActionGroup group = (ActionGroup) ActionManager.getInstance().getAction(IdeActions.GROUP_CALL_HIERARCHY_POPUP);
       final JTree tree1 = createTree(false);
       PopupHandler.installPopupHandler(tree1, group, ActionPlaces.CALL_HIERARCHY_VIEW_POPUP, ActionManager.getInstance());
       final CallHierarchyBrowser.BaseOnThisMethodAction baseOnThisMethodAction = new CallHierarchyBrowser.BaseOnThisMethodAction();
       baseOnThisMethodAction
         .registerCustomShortcutSet(ActionManager.getInstance().getAction(IdeActions.ACTION_CALL_HIERARCHY).getShortcutSet(), tree1);
-      trees.put(CALLEE_TYPE, tree1);
+      trees.put(getCalleeType(), tree1);
 
       final JTree tree2 = createTree(false);
       PopupHandler.installPopupHandler(tree2, group, ActionPlaces.CALL_HIERARCHY_VIEW_POPUP, ActionManager.getInstance());
       baseOnThisMethodAction
         .registerCustomShortcutSet(ActionManager.getInstance().getAction(IdeActions.ACTION_CALL_HIERARCHY).getShortcutSet(), tree2);
-      trees.put(CALLER_TYPE, tree2);
+      trees.put(getCallerType(), tree2);
     }
 
     @Override
@@ -91,16 +93,21 @@ public class ErlangCallHierarchyProvider implements HierarchyProvider {
 
     @Nullable
     @Override
-    protected HierarchyTreeStructure createHierarchyTreeStructure(@NotNull String type, @NotNull PsiElement e) {
-      if (CALLER_TYPE.equals(type)) return new ErlangCallerMethodsTreeStructure(myProject, (ErlangFunction)e, getCurrentScopeType());
-      if (CALLEE_TYPE.equals(type)) return new ErlangCalleeMethodsTreeStructure(myProject, (ErlangFunction)e, getCurrentScopeType());
+    protected HierarchyTreeStructure createHierarchyTreeStructure(@NotNull HierarchyScopeType type,
+                                                                  @NotNull PsiElement e) {
+      if (getCallerType().equals(type)) {
+        return new ErlangCallerMethodsTreeStructure(myProject, (ErlangFunction)e, getCurrentScopeType());
+      }
+      if (getCalleeType().equals(type)) {
+        return new ErlangCalleeMethodsTreeStructure(myProject, (ErlangFunction)e, getCurrentScopeType());
+      }
       LOG.error("unexpected type: " + type);
       return null;
     }
 
     @Nullable
     @Override
-    protected Comparator<NodeDescriptor> getComparator() {
+    protected Comparator<NodeDescriptor<?>> getComparator() {
       HierarchyBrowserManager.State state = HierarchyBrowserManager.getInstance(myProject).getState();
       return state != null && state.SORT_ALPHABETICALLY ? AlphaComparator.INSTANCE : SourceComparator.INSTANCE;
     }
