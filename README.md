@@ -1,4 +1,4 @@
-## Erlang plugin
+## Erlang plugin for IntelliJ
 [![Build Status](https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:IntellijIdeaPlugins_IntellijErlang_Tests)/statusIcon.svg?guest=1)](https://teamcity.jetbrains.com/viewType.html?buildTypeId=IntellijIdeaPlugins_IntellijErlang_Tests&guest=1)
 [![Build Status](https://travis-ci.org/ignatov/intellij-erlang.svg?branch=master)](https://travis-ci.org/ignatov/intellij-erlang)
 
